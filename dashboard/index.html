@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Radar — 200 pre-token protocols, ranked by conditional odds</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="masthead">
+  <div>
+    <h1>Token Radar</h1>
+    <p class="tag">Which pre-token protocol is worth farming next — ranked by the odds it ever launches, <em>given it hasn't yet</em>.</p>
+  </div>
+  <p class="asof" id="asof"></p>
+</header>
+<nav class="tabs">
+  <a href="#board" id="tab-board" class="tab">Board</a>
+  <a href="#live" id="tab-live" class="tab">Live tokens</a>
+  <a href="#method" id="tab-method" class="tab">Method</a>
+</nav>
+
+<section id="view-board">
+  <div class="kpi" id="kpi"></div>
+  <div class="integrity" id="integrity"></div>
+  <section class="panel ledger" id="ledger"></section>
+
+  <section class="panel board-panel">
+    <div class="panel-head">
+      <h2>The board <span class="muted small" id="boardCount"></span></h2>
+      <p class="muted small">Ranked by implied value: fitted market cap × conditional launch odds × own-token share × quality ratio. Click a row for the full arithmetic and farm plan. Click a column header to sort.</p>
+    </div>
+    <div class="filters">
+      <input id="q" type="search" placeholder="Search name or slug…" aria-label="Search">
+      <label>Verdict
+        <select id="f-verdict">
+          <option value="">All verdicts</option>
+          <option value="FARM">FARM</option>
+          <option value="THIN">THIN</option>
+          <option value="SKIP">SKIP</option>
+        </select>
+      </label>
+      <label class="check"><input id="f-watch" type="checkbox"> Watchlist only</label>
+      <button id="csv" type="button">Download CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table id="boardTable">
+        <thead><tr>
+          <th data-sort="rank">#</th><th data-sort="name">Protocol</th><th data-sort="tvl_usd">TVL</th><th data-sort="age_years">Age</th><th data-sort="fit_mcap_usd">Fitted mcap</th><th data-sort="odds_cum">Cum. odds</th><th data-sort="odds_cond">Cond. odds</th><th data-sort="own_share">Own share</th><th data-sort="quality_ratio">Quality</th><th data-sort="implied_value_usd">Implied value</th><th data-sort="verdict">Verdict</th>
+        </tr></thead>
+        <tbody id="boardBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="validationPanel">
+    <h2>Validation <span class="muted small">— every number below is computed by the entry at run time, not copied from a notebook</span></h2>
+    <div class="two-col">
+      <div>
+        <h3>The value model</h3>
+        <p id="valueFormula" class="eq"></p>
+        <p class="small">Huber log-log regression on <span id="nComps"></span> traded comparables: ln(market cap) on ln(TVL), ln(chains) and 7-day growth. A 6-specification horse race (Method tab) found nothing that beats it on leave-one-out <em>and</em> walk-forward at once.</p>
+        <table class="mini" id="wfTable"></table>
+        <p class="small" id="r2Text"></p>
+      </div>
+      <div>
+        <h3>The odds model</h3>
+        <p class="small">Logistic regression on <span id="nPeers"></span> peers. <span id="brierText"></span>. The fitted probability survives as the <em>quality ratio</em>: a protocol's own fitted odds over its age bucket's rate.</p>
+        <table class="mini" id="calTable"></table>
+        <p class="small">The conformal 50% band is ±<span id="bandText"></span> in log space; measured coverage on the comparables is <span id="covText"></span> (the band is honest about how wide it is — rank ranges on every row come from 200 bootstrap refits).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="oddsPanel">
+    <h2>Conditional odds <span class="muted small">— P(ever launches | tokenless at this age)</span></h2>
+    <p class="small">A protocol that is still tokenless at age <em>t</em> has already survived the launches its cohort already had. The cumulative share counts those launches; the conditional odds remove them: (F<sub>∞</sub> − F(t)) / (1 − F(t)), with F<sub>∞</sub> = 0.95. F(t) is the share of protocols already tokened by each age, measured on 525 peers. The 4–5y and 5y+ buckets are pooled (n = 49) because the raw 5y+ bucket held only 6 protocols and broke the monotone fall. Protocols with no listing date use the cohort base rate (59%).</p>
+    <div id="oddsBars" class="odds-bars"></div>
+    <p class="small muted">F<sub>∞</sub> = 0.95 is the midpoint of the honest range [0.90, 1.00]: the current-status likelihood rises monotonically to the 1.00 boundary, so the data barely pins F<sub>∞</sub> down — the full profile is in the Method tab, and the top 3 are identical at every F<sub>∞</sub> in [0.90, 1.00].</p>
+  </section>
+</section>
+
+<section id="view-live" hidden>
+  <section class="panel">
+    <h2>Live tokens <span class="muted small" id="liveCount"></span></h2>
+    <p class="small">These are the comparables: every protocol in the snapshot that already trades, with the market's own value — never a model's. The <span class="star">★</span> rows are the 94 comparables the value fit trains on; the rest are set aside (excluded categories, or no usable market cap). Click a column header to sort.</p>
+    <div class="filters">
+      <input id="q-live" type="search" placeholder="Search name or slug…" aria-label="Search live tokens">
+      <label class="check"><input id="f-fit" type="checkbox"> In the fit only (★)</label>
+    </div>
+    <div class="table-wrap">
+      <table id="liveTable">
+        <thead><tr>
+          <th data-sort="mcap_usd">Mcap</th><th data-sort="name">Protocol</th><th data-sort="category">Category</th><th data-sort="tvl_usd">TVL</th><th data-sort="ratio">Mcap / TVL</th><th data-sort="change_7d">7d</th><th data-sort="in_fit">In fit</th>
+        </tr></thead>
+        <tbody id="liveBody"></tbody>
+      </table>
+    </div>
+  </section>
+</section>
+
+<section id="view-method" hidden>
+  <section class="panel">
+    <h2>Method</h2>
+    <h3>The value model</h3>
+    <p class="small" id="methodValue"></p>
+    <table class="mini wide" id="termTable"></table>
+    <p class="small">A rival ships only when it beats the shipped spec on leave-one-out <em>and</em> walk-forward. None does: OLS wins walk-forward and loses leave-one-out; adding age wins neither. The flat baseline — one global median mcap/TVL multiple for every protocol — misses by ×4.60.</p>
+    <h3>The odds model</h3>
+    <p class="small" id="methodOdds"></p>
+    <table class="mini" id="methodCal"></table>
+    <h3>The cure fraction</h3>
+    <p class="small">Every protocol either launches eventually (fraction F<sub>∞</sub>) or never (1 − F<sub>∞</sub>). The current-status likelihood — each peer contributes F(t) if tokened, 1 − F(t) if not, with F(t) = F<sub>∞</sub>·G(t) and G a logistic curve in ln(years) — rises monotonically to the 1.00 boundary, so F<sub>∞</sub> is not identified. The point estimate 0.95 is a choice, the midpoint of [0.90, 1.00], and the board barely moves across the range:</p>
+    <div class="two-col">
+      <table class="mini" id="finfProfile"></table>
+      <table class="mini" id="finfSens"></table>
+    </div>
+    <p class="small" id="finfNote"></p>
+    <h3>The fit, seen</h3>
+    <div id="scatterWrap"></div>
+    <p class="small">Each dot is one of the 94 comparables (ln TVL vs ln market cap); the line is the Huber fit at the median chain count and median 7-day growth, the band is the conformal ±<span id="bandText2"></span>. R² is only 0.11 — the dashboard says so on the cover and carries the uncertainty as an interval and a bootstrap rank range on every row.</p>
+    <h3>Honest limits</h3>
+    <ul class="small">
+      <li>The value fit is weak (R² ~ 0.11); rank ranges are wide. Treat ranks as a shortlist, not a prophecy.</li>
+      <li>F<sub>∞</sub> is a choice, not a measurement (see above).</li>
+      <li>Age is a proxy for launch timing; funding rounds and team decisions are invisible in the snapshot.</li>
+      <li>Survivorship: dead protocols leave the snapshot; F(t) is measured on survivors only.</li>
+      <li>Farm economics are a plan, not a promise — the sensitivity grid on each detail view shows what happens when the 7% / 0.02% / $960 assumptions are wrong.</li>
+      <li>Own-token share is a snapshot proxy for family structure (first slug segment), not a legal fact.</li>
+    </ul>
+  </section>
+</section>
+
+<section id="view-detail" hidden></section>
+
+<footer class="muted small">
+  <span id="footNote"></span>
+</footer>
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
